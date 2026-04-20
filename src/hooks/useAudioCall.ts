@@ -25,7 +25,13 @@ interface UseAudioCallResult {
  * arguable; we keep it on for consistent perceived volume across speakers.
  * latency: 0.01 asks WASAPI for the lowest buffer it can give.
  */
-const WINDOWS_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+// `latency` is a Chrome-supported constraint but missing from the standard
+// lib.dom type — widen to a superset so we can ship it.
+interface ChromeAudioConstraints extends MediaTrackConstraints {
+  latency?: number;
+}
+
+const WINDOWS_AUDIO_CONSTRAINTS: ChromeAudioConstraints = {
   echoCancellation: true,
   noiseSuppression: true,
   autoGainControl: true,
