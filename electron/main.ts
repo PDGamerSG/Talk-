@@ -1,8 +1,15 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { join } from 'path';
 import { IPC_CHANNELS } from './ipc';
+import {
+  startSignalingServer,
+  type SignalingServerHandle
+} from './server/index';
 
 const isDev = !app.isPackaged;
+const SIGNALING_PORT = 45671;
+
+let serverHandle: SignalingServerHandle | null = null;
 
 function createMainWindow(): BrowserWindow {
   const preloadPath = join(__dirname, '../preload/index.js');
@@ -69,8 +76,18 @@ function registerWindowIpc(): void {
   });
 }
 
-app.whenReady().then(() => {
+function registerAppIpc(): void {
+  ipcMain.handle(IPC_CHANNELS.SERVER_PORT, () => SIGNALING_PORT);
+}
+
+app.whenReady().then(async () => {
   registerWindowIpc();
+  registerAppIpc();
+  try {
+    serverHandle = await startSignalingServer(SIGNALING_PORT);
+  } catch (err) {
+    console.error('[main] signaling server failed to start', err);
+  }
   createMainWindow();
 
   app.on('activate', () => {
@@ -83,5 +100,12 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', async () => {
+  if (serverHandle) {
+    await serverHandle.close().catch(() => undefined);
+    serverHandle = null;
   }
 });
