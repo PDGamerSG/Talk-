@@ -78,6 +78,18 @@ function registerWindowIpc(): void {
 
 function registerAppIpc(): void {
   ipcMain.handle(IPC_CHANNELS.SERVER_PORT, () => SIGNALING_PORT);
+
+  // Windows: no OS-level mic permission API — the Chromium getUserMedia
+  // prompt is authoritative. This handler exists so renderer code has a
+  // single consistent entry point.
+  ipcMain.handle(IPC_CHANNELS.CALL_MIC_PERMISSION, () => ({ granted: true }));
+
+  ipcMain.handle('open:mic-settings', async () => {
+    await shell.openExternal('ms-settings:privacy-microphone');
+  });
+  ipcMain.handle('open:screen-settings', async () => {
+    await shell.openExternal('ms-settings:privacy-screenrecording');
+  });
 }
 
 app.whenReady().then(async () => {

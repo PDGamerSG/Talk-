@@ -38,6 +38,28 @@ const electronAPI = {
 
   close(): void {
     ipcRenderer.send(IPC_CHANNELS.WINDOW_CLOSE);
+  },
+
+  requestMicPermission(): Promise<{ granted: boolean }> {
+    return ipcRenderer.invoke(IPC_CHANNELS.CALL_MIC_PERMISSION) as Promise<{
+      granted: boolean;
+    }>;
+  },
+
+  getScreenSources(): Promise<unknown> {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_SCREEN_SOURCES);
+  },
+
+  getAudioSources(): Promise<unknown> {
+    return ipcRenderer.invoke(IPC_CHANNELS.GET_AUDIO_SOURCES);
+  },
+
+  openMicSettings(): Promise<void> {
+    return ipcRenderer.invoke('open:mic-settings') as Promise<void>;
+  },
+
+  openScreenSettings(): Promise<void> {
+    return ipcRenderer.invoke('open:screen-settings') as Promise<void>;
   }
 };
 
