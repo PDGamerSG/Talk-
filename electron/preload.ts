@@ -46,11 +46,11 @@ const electronAPI = {
     }>;
   },
 
-  getScreenSources(): Promise<unknown> {
+  getScreenSources() {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_SCREEN_SOURCES);
   },
 
-  getAudioSources(): Promise<unknown> {
+  getAudioSources() {
     return ipcRenderer.invoke(IPC_CHANNELS.GET_AUDIO_SOURCES);
   },
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, desktopCapturer, ipcMain, shell } from 'electron';
 import { join } from 'path';
 import { IPC_CHANNELS } from './ipc';
 import {
@@ -89,6 +89,50 @@ function registerAppIpc(): void {
   });
   ipcMain.handle('open:screen-settings', async () => {
     await shell.openExternal('ms-settings:privacy-screenrecording');
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_SCREEN_SOURCES, async () => {
+    const sources = await desktopCapturer.getSources({
+      types: ['window', 'screen'],
+      thumbnailSize: { width: 320, height: 180 },
+      fetchWindowIcons: true
+    });
+    return sources
+      .filter((s) => {
+        // On Windows minimized windows return a blank/empty thumbnail —
+        // skip them so the picker does not show useless cards.
+        if (s.id.startsWith('window:')) {
+          const img = s.thumbnail;
+          return !img.isEmpty() && img.getSize().width > 0;
+        }
+        return true;
+      })
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        thumbnailDataURL: s.thumbnail.toDataURL(),
+        appIconDataURL: s.appIcon ? s.appIcon.toDataURL() : null,
+        type: s.id.startsWith('screen:')
+          ? ('screen' as const)
+          : ('window' as const)
+      }));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_AUDIO_SOURCES, async () => {
+    const sources = await desktopCapturer.getSources({
+      types: ['window'],
+      thumbnailSize: { width: 200, height: 120 },
+      fetchWindowIcons: true
+    });
+    return sources
+      .filter((s) => !s.thumbnail.isEmpty())
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        thumbnailDataURL: s.thumbnail.toDataURL(),
+        appIconDataURL: s.appIcon ? s.appIcon.toDataURL() : null,
+        type: 'window' as const
+      }));
   });
 }
 
