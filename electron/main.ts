@@ -4,8 +4,6 @@ import { IPC_CHANNELS } from './ipc';
 
 const isDev = !app.isPackaged;
 
-let mainWindow: BrowserWindow | null = null;
-
 function createMainWindow(): BrowserWindow {
   const preloadPath = join(__dirname, '../preload/index.js');
   const iconPath = join(__dirname, '../../electron/assets/icons/icon.ico');
@@ -73,11 +71,11 @@ function registerWindowIpc(): void {
 
 app.whenReady().then(() => {
   registerWindowIpc();
-  mainWindow = createMainWindow();
+  createMainWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createMainWindow();
+      createMainWindow();
     }
   });
 });
