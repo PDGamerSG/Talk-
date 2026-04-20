@@ -2,6 +2,7 @@ import { createServer, type Server as HttpServer } from 'node:http';
 import { Server as IoServer, type Socket } from 'socket.io';
 import express from 'express';
 import cors from 'cors';
+import { CoBrowser } from './cobrowser';
 
 interface Member {
   socketId: string;
@@ -56,6 +57,7 @@ export async function startSignalingServer(
 
   const rooms = new Map<string, RoomState>();
   const socketToRoom = new Map<string, string>();
+  const coBrowsers = new Map<string, CoBrowser>();
 
   function broadcastPeerLeft(room: RoomState, socketId: string): void {
     io.to(room.roomId).emit('room:peer-left', { socketId });
@@ -64,6 +66,11 @@ export async function startSignalingServer(
   function destroyRoomIfEmpty(roomId: string): void {
     const room = rooms.get(roomId);
     if (room && room.members.size === 0) {
+      const cb = coBrowsers.get(roomId);
+      if (cb) {
+        void cb.stop();
+        coBrowsers.delete(roomId);
+      }
       rooms.delete(roomId);
     }
   }
@@ -209,6 +216,98 @@ export async function startSignalingServer(
       if (roomId) {
         io.to(roomId).emit('song:stopped', { socketId: socket.id });
       }
+    });
+
+    // ---------- Co-browser (one instance per room) ----------
+    socket.on('cobrowser:start', async ({ url }: { url: string }) => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+      let cb = coBrowsers.get(roomId);
+      if (!cb) {
+        cb = new CoBrowser(roomId, io);
+        coBrowsers.set(roomId, cb);
+      }
+      try {
+        await cb.start(url);
+      } catch (err) {
+        io.to(roomId).emit('cobrowser:crashed', {
+          message: (err as Error).message
+        });
+      }
+    });
+
+    socket.on('cobrowser:stop', async () => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+      const cb = coBrowsers.get(roomId);
+      if (cb) {
+        await cb.stop();
+        coBrowsers.delete(roomId);
+      }
+    });
+
+    socket.on('cobrowser:navigate', ({ url }: { url: string }) => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+      void coBrowsers.get(roomId)?.navigate(url);
+    });
+    socket.on('cobrowser:back', () => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+      void coBrowsers.get(roomId)?.goBack();
+    });
+    socket.on('cobrowser:forward', () => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+      void coBrowsers.get(roomId)?.goForward();
+    });
+    socket.on('cobrowser:reload', () => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+      void coBrowsers.get(roomId)?.reload();
+    });
+
+    socket.on(
+      'cobrowser:mouse-move',
+      (p: { x: number; y: number; scaleX: number; scaleY: number }) => {
+        const roomId = socketToRoom.get(socket.id);
+        if (!roomId) return;
+        coBrowsers.get(roomId)?.handleMouseMove(p.x, p.y, p.scaleX, p.scaleY);
+      }
+    );
+    socket.on(
+      'cobrowser:mouse-click',
+      (p: {
+        x: number;
+        y: number;
+        scaleX: number;
+        scaleY: number;
+        button: 'left' | 'right';
+      }) => {
+        const roomId = socketToRoom.get(socket.id);
+        if (!roomId) return;
+        coBrowsers
+          .get(roomId)
+          ?.handleMouseClick(p.x, p.y, p.scaleX, p.scaleY, p.button);
+      }
+    );
+    socket.on(
+      'cobrowser:scroll',
+      (p: { deltaX: number; deltaY: number }) => {
+        const roomId = socketToRoom.get(socket.id);
+        if (!roomId) return;
+        coBrowsers.get(roomId)?.handleScroll(p.deltaX, p.deltaY);
+      }
+    );
+    socket.on('cobrowser:keypress', (p: { key: string }) => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+      coBrowsers.get(roomId)?.handleKeypress(p.key);
+    });
+    socket.on('cobrowser:type', (p: { text: string }) => {
+      const roomId = socketToRoom.get(socket.id);
+      if (!roomId) return;
+      coBrowsers.get(roomId)?.handleType(p.text);
     });
 
     socket.on('disconnect', () => {
