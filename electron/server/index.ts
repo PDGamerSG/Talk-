@@ -322,8 +322,18 @@ export async function startSignalingServer(
     });
   });
 
-  await new Promise<void>((resolve) => {
-    httpServer.listen(port, '127.0.0.1', () => resolve());
+  await new Promise<void>((resolve, reject) => {
+    const onError = (err: Error): void => {
+      httpServer.off('listening', onListening);
+      reject(err);
+    };
+    const onListening = (): void => {
+      httpServer.off('error', onError);
+      resolve();
+    };
+    httpServer.once('error', onError);
+    httpServer.once('listening', onListening);
+    httpServer.listen(port, '127.0.0.1');
   });
 
   const close = async (): Promise<void> => {

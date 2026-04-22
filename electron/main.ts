@@ -8,6 +8,14 @@ import {
 
 const isDev = !app.isPackaged;
 const SIGNALING_PORT = 45671;
+const INSTANCE_ID = process.env['TALKPLUS_INSTANCE'] ?? '';
+
+if (INSTANCE_ID) {
+  // Second (and further) dev instances share the signaling port on localhost
+  // but need their own userData dir — otherwise Chromium's singleton lock
+  // refuses to launch.
+  app.setPath('userData', join(app.getPath('userData'), `instance-${INSTANCE_ID}`));
+}
 
 let serverHandle: SignalingServerHandle | null = null;
 
@@ -142,7 +150,14 @@ app.whenReady().then(async () => {
   try {
     serverHandle = await startSignalingServer(SIGNALING_PORT);
   } catch (err) {
-    console.error('[main] signaling server failed to start', err);
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'EADDRINUSE') {
+      console.log(
+        `[main] signaling server already running on ${SIGNALING_PORT} — joining as client`
+      );
+    } else {
+      console.error('[main] signaling server failed to start', err);
+    }
   }
   createMainWindow();
 

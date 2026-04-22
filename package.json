@@ -7,6 +7,8 @@
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:2": "node scripts/dev-second.mjs 2",
+    "dev:3": "node scripts/dev-second.mjs 3",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit"
